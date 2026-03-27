@@ -1,0 +1,120 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: gift_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: giftuser
+      POSTGRES_PASSWORD: giftpassword
+      POSTGRES_DB: giftdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./pgdata:/var/lib/postgresql/data_local_backup
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U giftuser -d giftdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - gift_network
+
+  db-backup:
+    image: pgvector/pgvector:pg16
+    container_name: gift_db_backup
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: giftpassword
+    volumes:
+      - ./backups:/backups
+    entrypoint: >
+      /bin/sh -c "
+        while true; do
+          TIMESTAMP=$$(date +%Y%m%d_%H%M%S);
+          TMP_FILE=/backups/giftdb_$$TIMESTAMP.dump.tmp;
+          FINAL_FILE=/backups/giftdb_$$TIMESTAMP.dump;
+          echo \"[backup] Starting dump at $$TIMESTAMP\";
+          if pg_dump -h postgres -U giftuser -d giftdb -F c -f $$TMP_FILE; then
+            if [ -s $$TMP_FILE ]; then
+              mv $$TMP_FILE $$FINAL_FILE;
+              echo \"[backup] Dump saved: $$(basename $$FINAL_FILE)\";
+            else
+              echo \"[backup] Dump failed: empty file\";
+              rm -f $$TMP_FILE;
+            fi
+          else
+            echo \"[backup] Dump command failed\";
+            rm -f $$TMP_FILE;
+          fi
+          find /backups -type f -name '*.dump' -size 0 -delete;
+          ls -1t /backups/*.dump 2>/dev/null | tail -n +3 | xargs -r rm -f --;
+          echo \"[backup] Next backup in 24 hours\";
+          sleep 86400;
+        done
+      "
+    networks:
+      - gift_network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gift_backend
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://giftuser:giftpassword@postgres:5432/giftdb
+      - DATABASE_URL_SYNC=postgresql://giftuser:giftpassword@postgres:5432/giftdb
+    ports:
+      - "${BACKEND_PORT:-8001}:8000"
+    volumes:
+      - ./app:/app/app
+      - ./scripts:/app/scripts
+      - ./data:/app/data
+      - ./.env:/app/.env
+      - ../frontend/.env:/app/frontend.env
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - gift_network
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: gift_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@giftapp.com
+      PGADMIN_DEFAULT_PASSWORD: AdminSecurePass123!
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - gift_network
+
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  gift_network:
+    driver: bridge

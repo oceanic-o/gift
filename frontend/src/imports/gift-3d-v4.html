@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gift Packing — 3D</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Jost:wght@200;300;400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1c110a;overflow:hidden;font-family:'Jost',sans-serif;user-select:none}
+#cv{position:fixed;inset:0}
+canvas{display:block}
+#lbl{position:fixed;top:30px;left:50%;transform:translateX(-50%);font-family:'Cormorant Garamond',serif;font-style:italic;font-size:1.05rem;letter-spacing:.28em;text-transform:uppercase;color:rgba(218,178,82,.92);pointer-events:none;z-index:50;white-space:nowrap;text-shadow:0 0 28px rgba(218,178,82,.3)}
+#prog{position:fixed;bottom:34px;left:50%;transform:translateX(-50%);display:flex;gap:10px;z-index:50}
+.dot{width:6px;height:6px;border-radius:50%;background:rgba(218,178,82,.15);border:1px solid rgba(218,178,82,.35);transition:all .5s}
+.dot.on{background:#dab252;box-shadow:0 0 8px #dab252;transform:scale(1.3)}
+#replay{position:fixed;bottom:68px;left:50%;transform:translateX(-50%);opacity:0;pointer-events:none;cursor:pointer;font-family:'Jost',sans-serif;font-size:.68rem;letter-spacing:.35em;text-transform:uppercase;color:#dab252;border:1px solid rgba(218,178,82,.3);padding:10px 28px;background:rgba(218,178,82,.04);backdrop-filter:blur(6px);border-radius:1px;transition:all .3s;z-index:50}
+#replay.show{opacity:1;pointer-events:all}
+#replay:hover{background:rgba(218,178,82,.1);letter-spacing:.42em}
+#hints{position:fixed;bottom:116px;left:50%;transform:translateX(-50%);display:flex;gap:14px;opacity:0;pointer-events:none;z-index:50;transition:opacity .5s}
+#hints.show{opacity:1;pointer-events:all}
+.hbtn{font-family:'Jost',sans-serif;font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:rgba(218,178,82,.8);border:1px solid rgba(218,178,82,.2);padding:8px 14px;border-radius:1px;cursor:pointer;background:rgba(218,178,82,.04);transition:all .3s}
+.hbtn:hover{background:rgba(218,178,82,.1);color:#dab252}
+.mbg{position:fixed;inset:0;background:rgba(10,6,2,.93);backdrop-filter:blur(14px);z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .4s}
+.mbg.open{opacity:1;pointer-events:all}
+.crd-modal{width:286px;background:linear-gradient(160deg,#fdf6ec,#f5e8d4);border-radius:6px;overflow:hidden;box-shadow:0 50px 100px rgba(0,0,0,.95),0 0 0 1px rgba(218,178,82,.22);transform:scale(.8) rotateY(12deg);transition:transform .5s cubic-bezier(.34,1.56,.64,1)}
+.mbg.open .crd-modal{transform:scale(1) rotateY(0)}
+.crd-top{background:linear-gradient(135deg,#2a1406,#180a02);padding:26px 20px 18px;text-align:center;position:relative;overflow:hidden}
+.crd-top::before{content:'';position:absolute;inset:0;background-image:repeating-linear-gradient(45deg,transparent,transparent 10px,rgba(218,178,82,.04) 10px,rgba(218,178,82,.04) 11px)}
+.crd-top::after{content:'';position:absolute;inset:4px;border:1px solid rgba(218,178,82,.3);border-radius:2px;pointer-events:none}
+.crd-emoji{font-size:36px;display:block;margin-bottom:7px}
+.crd-ttl{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:1.18rem;color:#f5e8d4;letter-spacing:.1em}
+.crd-bdy{padding:22px 20px 18px}
+.crd-msg{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:.93rem;color:#1c100a;line-height:1.85;text-align:center}
+.crd-sig{display:block;font-family:'Cormorant Garamond',serif;font-style:italic;color:#2a1406;font-size:.96rem;text-align:right;margin-top:11px}
+.mclose{display:block;margin:11px auto 0;background:none;border:none;font-family:'Jost',sans-serif;font-size:.59rem;letter-spacing:.28em;text-transform:uppercase;color:rgba(28,16,10,.28);cursor:pointer}
+.ltr-modal{width:294px;background:#fdf6ec;border-radius:3px;padding:34px 26px 26px;box-shadow:0 50px 100px rgba(0,0,0,.95),0 0 0 1px rgba(218,178,82,.14);position:relative;transform:scale(.8) rotate(-4deg);transition:transform .5s cubic-bezier(.34,1.56,.64,1)}
+.mbg.open .ltr-modal{transform:scale(1) rotate(0)}
+.ltr-seal{position:absolute;top:-15px;right:22px;width:30px;height:30px;background:radial-gradient(circle at 38% 32%,#f0d888,#c8a84b,#8a6f20);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;color:#2a1406;box-shadow:0 4px 12px rgba(0,0,0,.5)}
+.ltr-dt{font-family:'Cormorant Garamond',serif;font-size:.67rem;color:rgba(28,16,10,.4);letter-spacing:.1em;margin-bottom:12px}
+.ltr-rl{height:1px;background:rgba(28,16,10,.1);margin:6px 0}
+.ltr-txt{font-family:'Cormorant Garamond',serif;font-size:.91rem;color:#1c100a;line-height:1.95}
+.ltr-sig{display:block;font-family:'Cormorant Garamond',serif;font-style:italic;font-size:.98rem;color:#2a1406;text-align:right;margin-top:13px}
+</style>
+</head>
+<body>
+<div id="cv"></div>
+<div id="lbl">Preparing your gift…</div>
+<div id="prog">
+  <div class="dot" id="d0"></div><div class="dot" id="d1"></div>
+  <div class="dot" id="d2"></div><div class="dot" id="d3"></div>
+  <div class="dot" id="d4"></div><div class="dot" id="d5"></div>
+  <div class="dot" id="d6"></div>
+</div>
+<div id="hints">
+  <div class="hbtn" id="btnCard">📮 Open Card</div>
+  <div class="hbtn" id="btnLetter">✉️ Read Letter</div>
+</div>
+<button id="replay">↺ Watch Again</button>
+
+<div class="mbg" id="mCard">
+  <div class="crd-modal">
+    <div class="crd-top">
+      <span class="crd-emoji">🌹</span>
+      <div class="crd-ttl">With All My Heart</div>
+    </div>
+    <div class="crd-bdy">
+      <p class="crd-msg">"Every moment with you is a gift more precious than words can hold. May this token carry all the warmth I feel — always."</p>
+      <span class="crd-sig">— Forever Yours ✦</span>
+      <button class="mclose" onclick="closeMod('mCard')">close</button>
+    </div>
+  </div>
+</div>
+
+<div class="mbg" id="mLetter">
+  <div class="ltr-modal">
+    <div class="ltr-seal">✦</div>
+    <div class="ltr-dt">26th February, 2026</div>
+    <div class="ltr-rl"></div>
+    <p class="ltr-txt">Dearest,<br><br>There are moments so beautiful they refuse to be spoken — they can only be wrapped carefully, tied with gold, and placed gently in someone's hands with quiet hope.<br><br>This is one of those moments. You are one of those people.</p>
+    <div class="ltr-rl" style="margin-top:12px"></div>
+    <span class="ltr-sig">With endless warmth,<br>— Yours ✦</span>
+    <button class="mclose" onclick="closeMod('mLetter')">close letter</button>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+//  RENDERER + SCENE
+// ─────────────────────────────────────────────
+const R = new THREE.WebGLRenderer({antialias:true});
+R.setPixelRatio(Math.min(devicePixelRatio,2));
+R.setSize(innerWidth,innerHeight);
+R.shadowMap.enabled = true;
+R.shadowMap.type = THREE.PCFSoftShadowMap;
+R.toneMapping = THREE.ACESFilmicToneMapping;
+R.toneMappingExposure = 1.15;
+document.getElementById('cv').appendChild(R.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1c110a);
+scene.fog = new THREE.FogExp2(0x1c110a, 0.02);
+
+const cam = new THREE.PerspectiveCamera(44, innerWidth/innerHeight, 0.1, 200);
+// camState drives camera — synced each frame
+const camS = { x:0, y:7, z:16, fov:44 };
+const CAM_LOOK = new THREE.Vector3(0, 0.5, 0);
+
+// ── Lights ──
+scene.add(new THREE.AmbientLight(0xffe0b8, 0.32));
+
+const keyL = new THREE.DirectionalLight(0xfff0d0, 2.5);
+keyL.position.set(8,14,10); keyL.castShadow=true;
+keyL.shadow.mapSize.set(2048,2048);
+keyL.shadow.camera.left=-8; keyL.shadow.camera.right=8;
+keyL.shadow.camera.top=8; keyL.shadow.camera.bottom=-8;
+keyL.shadow.bias=-0.001;
+scene.add(keyL);
+
+const fillL = new THREE.DirectionalLight(0xffcc88,0.65);
+fillL.position.set(-6,5,4); scene.add(fillL);
+
+const rimL = new THREE.DirectionalLight(0xe0a030,1.1);
+rimL.position.set(1,10,-10); scene.add(rimL);
+
+const ptL = new THREE.PointLight(0xffbb44,2.2,28);
+ptL.position.set(2,6,5); scene.add(ptL);
+
+// ── Floor ──
+const floorM = new THREE.Mesh(
+  new THREE.BoxGeometry(60,0.3,30),
+  new THREE.MeshStandardMaterial({color:0x120904,roughness:0.94,metalness:0.01})
+);
+floorM.position.y=-2.0; floorM.receiveShadow=true;
+scene.add(floorM);
+
+// ─────────────────────────────────────────────
+//  CONSTANTS
+// ─────────────────────────────────────────────
+const BW=3.0, BH=2.2, BD=2.4, BT=0.09, LH=0.36;
+const FLOOR_Y=-2.0+0.15; // top of floor
+const BOX_CY = FLOOR_Y+BH/2; // world Y of box center
+
+// ─────────────────────────────────────────────
+//  MATERIALS
+// ─────────────────────────────────────────────
+function stdMat(hex,r,m,extra){return new THREE.MeshStandardMaterial({color:hex,roughness:r,metalness:m||0,...(extra||{})})}
+
+// Navy blue gift box
+const mFront = stdMat(0x1e3050,0.58,0.12);
+const mSide  = stdMat(0x152238,0.65,0.10);
+const mTop   = stdMat(0x253c5c,0.56,0.14);
+const mInner = stdMat(0x0e1828,0.96,0.0);
+
+// Ribbon & bow — warm champagne gold with sheen
+const mRib  = stdMat(0xd4a830,0.20,0.80);
+const mRibH = stdMat(0xf8e060,0.05,0.95);
+
+// Card and envelope — cream/ivory
+const mCream = stdMat(0xfdf4e4,0.88,0.0);
+const mCardB = stdMat(0x1e3050,0.60,0.12); // card back = box color
+const mEnvB  = stdMat(0xf0e2cc,0.88,0.0);
+const mEnvFL = stdMat(0xe8d4b8,0.88,0.0);
+
+// Gold for details
+const mGold = stdMat(0xd4a830,0.18,0.85);
+
+// Gift bottle
+const mGlass = stdMat(0x5888b8,0.04,0.08,{transparent:true,opacity:0.80});
+const mGlsHi = stdMat(0xa8cce8,0.0,0.0,{transparent:true,opacity:0.28});
+const mGCap  = stdMat(0xd4a830,0.14,0.88);
+const mLabel = stdMat(0xfdf4e4,0.92,0.0);
+
+// ─────────────────────────────────────────────
+//  PROXY OBJECTS  (GSAP tweens these plain objects, render loop syncs to THREE)
+// ─────────────────────────────────────────────
+// Each object that needs animation gets a plain-JS "state" struct.
+// The render loop reads these and sets .position/.rotation/.scale on THREE objects.
+
+const boxS    = {x:0,y:BOX_CY,z:0, rx:0,ry:-Math.PI/3,rz:0, sx:.001,sy:.001,sz:.001};
+const lidS    = {rx:0}; // only rotation x (pivot)
+const camS2   = {x:0,y:7,z:16,fov:44};
+const giftS   = {x:0,y:BOX_CY+BH/2+5,z:0, rx:0,ry:Math.PI/5,rz:0, vis:0};
+const ribbonS = {sx:.001,sy:.001,sz:.001, vis:0};
+const bowS    = {sx:.001,sy:.001,sz:.001, ry:Math.PI, vis:0, floatY:0};
+const cardS   = {lx:BW/4+4, vis:0}; // lx = local offset from rest
+const letterS = {lx:-BW/4-4, vis:0};
+const tissueS = {vis:0};
+const giftHideFlag = {hide:0}; // used to trigger gift hide after lid closes
+
+// ─────────────────────────────────────────────
+//  THREE.JS OBJECTS (rebuilt each replay)
+// ─────────────────────────────────────────────
+let BOX, BASE, LIDPIV, TISSUE, GIFT, RIBBON, BOW, CARD, LETTER;
+let PARTS, pPos, pVel, pLife, pGeo;
+let burstOn=false;
+let giftHidden=false; // track if we've already hidden gift
+
+function mkBox(w,h,d){ return new THREE.BoxGeometry(w,h,d); }
+
+function buildAll(){
+  [BOX,GIFT,CARD,LETTER,PARTS].forEach(o=>{if(o)scene.remove(o);});
+
+  // ── BOX GROUP ──
+  BOX = new THREE.Group();
+  scene.add(BOX);
+
+  BASE = new THREE.Group();
+  BOX.add(BASE);
+
+  function addFace(w,h,d,mArr,px,py,pz){
+    const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),Array.isArray(mArr)?mArr:new Array(6).fill(mArr));
+    mesh.position.set(px,py,pz); mesh.castShadow=true; mesh.receiveShadow=true;
+    BASE.add(mesh); return mesh;
+  }
+  addFace(BW,BH,BT,[mSide,mSide,mSide,mSide,mFront,mInner],0,0,BD/2);   // front
+  addFace(BW,BH,BT,[mSide,mSide,mSide,mSide,mInner,mSide], 0,0,-BD/2);  // back
+  addFace(BT,BH,BD,[mInner,mSide,mSide,mSide,mSide,mSide], -BW/2,0,0);  // left
+  addFace(BT,BH,BD,[mSide,mInner,mSide,mSide,mSide,mSide],  BW/2,0,0);  // right
+  addFace(BW,BT,BD, mSide,                                   0,-BH/2,0); // bottom
+
+  // Diamond grid lines on front face
+  const lm=new THREE.LineBasicMaterial({color:0x4a72a8,transparent:true,opacity:0.16});
+  const fp=BASE.children[0];
+  for(let i=0;i<=5;i++){
+    const t=(i/5)-.5;
+    fp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(t*BW,-BH/2,0.001),new THREE.Vector3(t*BW,BH/2,0.001)]),lm));
+    fp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-BW/2,t*BH,0.001),new THREE.Vector3(BW/2,t*BH,0.001)]),lm));
+  }
+
+  // ── LID (child of BOX) ──
+  // LIDPIV sits at top of base, pivots from front-bottom edge
+  LIDPIV = new THREE.Group();
+  LIDPIV.position.set(0, BH/2, BD/2); // local: top of base, front edge
+  BOX.add(LIDPIV);
+
+  function addLidFace(w,h,d,m,px,py,pz){
+    const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),Array.isArray(m)?m:new Array(6).fill(m));
+    mesh.position.set(px,py,pz); mesh.castShadow=true;
+    LIDPIV.add(mesh);
+  }
+  // All positions relative to pivot (front-bottom of lid)
+  addLidFace(BW+BT*2,BT,BD+BT*2,[mSide,mSide,mSide,mSide,mTop,mInner], 0, LH, -BD/2-BT); // top
+  addLidFace(BW+BT*2,LH,BT,     [mSide,mSide,mSide,mSide,mTop,mInner], 0, LH/2, 0);        // front face
+  addLidFace(BW+BT*2,LH,BT,      mTop,                                  0, LH/2, -BD-BT);   // back
+  addLidFace(BT,LH,BD+BT*2,      mTop,                                 -BW/2-BT/2, LH/2, -BD/2-BT); // left
+  addLidFace(BT,LH,BD+BT*2,      mTop,                                  BW/2+BT/2, LH/2, -BD/2-BT); // right
+
+  // ── TISSUE (child of BOX, local coords) ──
+  TISSUE = new THREE.Group();
+  TISSUE.position.set(0, BH/2-0.22, 0); // near top of box interior
+  TISSUE.visible=false;
+  BOX.add(TISSUE);
+
+  const tCols=[0xb0ccf0,0xccb0ee,0xf0eeaa];
+  for(let i=0;i<3;i++){
+    const g=new THREE.PlaneGeometry(BW-0.3,BD-0.3,5,5);
+    const pa=g.attributes.position;
+    for(let j=0;j<pa.count;j++) pa.setY(j,pa.getY(j)+(Math.random()-.5)*0.1);
+    g.computeVertexNormals();
+    const tm=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:tCols[i],roughness:.92,transparent:true,opacity:.82,side:THREE.DoubleSide}));
+    tm.rotation.x=-Math.PI/2; tm.rotation.z=(i-1)*0.12;
+    tm.position.y=i*0.025; tm.receiveShadow=true;
+    TISSUE.add(tm);
+  }
+
+  // ── GIFT BOTTLE (world-space, animated via giftS) ──
+  GIFT=new THREE.Group();
+  GIFT.visible=false;
+  scene.add(GIFT);
+
+  const body=new THREE.Mesh(mkBox(0.54,1.15,0.36),mGlass);
+  body.castShadow=true; GIFT.add(body);
+  const ghi=new THREE.Mesh(mkBox(0.18,0.85,0.1),mGlsHi);
+  ghi.position.set(-0.1,0,0.14); GIFT.add(ghi);
+  const lbl=new THREE.Mesh(mkBox(0.44,0.60,0.38),mLabel);
+  lbl.position.y=-0.1; lbl.castShadow=true; GIFT.add(lbl);
+  const gst=new THREE.Mesh(mkBox(0.44,0.055,0.382),mGold);
+  gst.position.y=0.12; GIFT.add(gst);
+  const nk=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.12,0.2,16),mGlass);
+  nk.position.y=0.68; GIFT.add(nk);
+  const cpM=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.1,0.19,16),mGCap);
+  cpM.position.y=0.88; cpM.castShadow=true; GIFT.add(cpM);
+
+  // ── RIBBON (child of BOX, local coords) ──
+  RIBBON=new THREE.Group();
+  RIBBON.visible=false;
+  BOX.add(RIBBON);
+
+  const rW=0.115, eps=0.012;
+  const ribY=LH/4; // vertical center of horizontal band (in box local)
+  const vCY=(BH/2+LH/2)-BH/2; // vertical center of full height = LH/2 - ... actually =0 when box center is 0... let's compute:
+  // box local Y: bottom=-BH/2, top of box=BH/2, top of lid=BH/2+LH
+  // center of full height (base+lid) = (BH/2+LH)/2 - BH/2 = LH/2
+  const vCenterY = LH/2;
+  const fullH = BH+LH;
+
+  function addRibMesh(w,h,d,px,py,pz,mat){
+    const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat||mRib);
+    m.position.set(px,py,pz); m.castShadow=true;
+    RIBBON.add(m);
+  }
+
+  // Horizontal band — all 4 sides
+  addRibMesh(BW+eps,      rW, rW,    0,          ribY,   BD/2+rW/2+eps);  // front horiz
+  addRibMesh(BW+eps,      rW, rW,    0,          ribY,  -BD/2-rW/2-eps);  // back horiz
+  addRibMesh(rW,          rW, BD+rW*2, -BW/2-rW/2-eps, ribY, 0);          // left horiz
+  addRibMesh(rW,          rW, BD+rW*2,  BW/2+rW/2+eps, ribY, 0);          // right horiz
+  // Horizontal highlight strip on front
+  addRibMesh(BW+eps, rW*0.35, rW*0.35, 0, ribY, BD/2+rW+eps, mRibH);
+
+  // Vertical band — front face
+  addRibMesh(rW, fullH, rW,    0, vCenterY,  BD/2+rW/2+eps);   // front vert
+  addRibMesh(rW, fullH, rW,    0, vCenterY, -BD/2-rW/2-eps);   // back vert
+  // Vertical highlight strip on front
+  addRibMesh(rW*0.35, fullH, rW*0.35, 0, vCenterY, BD/2+rW+eps, mRibH);
+
+  // Top cross panel (sits flat on top of lid)
+  const topY=BH/2+LH+rW/2;
+  addRibMesh(BW+rW*2+eps, rW, BD+rW*2+eps, 0, topY, 0); // full top cross
+  addRibMesh(rW, rW, BD+rW*2+eps, 0, topY, 0, mRibH);   // center highlight
+
+  // ── BOW (child of BOX, sits on top of lid at local y=BH/2+LH) ──
+  BOW=new THREE.Group();
+  BOW.visible=false;
+  // BOW base position in BOX local = top of lid + rW + a tiny gap
+  BOW.position.set(0, BH/2+LH+rW+0.06, 0);
+  BOX.add(BOW);
+
+  function bowLoop(px,rz){
+    const m=new THREE.Mesh(new THREE.TorusGeometry(0.33,0.064,14,40,Math.PI),mRibH);
+    m.position.set(px,0,0); m.rotation.set(Math.PI/2,0,rz); m.castShadow=true;
+    return m;
+  }
+  BOW.add(bowLoop(-0.26, Math.PI/4));
+  BOW.add(bowLoop( 0.26,-Math.PI/4));
+  BOW.add(bowLoop(-0.14, Math.PI/7));
+  BOW.add(bowLoop( 0.14,-Math.PI/7));
+  const kn=new THREE.Mesh(new THREE.SphereGeometry(0.095,16,16),mRibH);
+  kn.castShadow=true; BOW.add(kn);
+
+  function bowTail(sx){
+    const c=new THREE.CatmullRomCurve3([
+      new THREE.Vector3(sx*0.08,0.02,0),
+      new THREE.Vector3(sx*0.9,-0.16,0.06),
+      new THREE.Vector3(sx*1.7,-0.42,0.1),
+      new THREE.Vector3(sx*2.1,-0.62,0.08)
+    ]);
+    const m=new THREE.Mesh(new THREE.TubeGeometry(c,16,0.034,8,false),mRib);
+    m.castShadow=true; return m;
+  }
+  BOW.add(bowTail(-1));
+  BOW.add(bowTail( 1));
+
+  // ── CARD (child of BOX, local coords — attached to front face) ──
+  CARD=new THREE.Group();
+  CARD.visible=false;
+  BOX.add(CARD);
+
+  // Faces: +x,-x,+y,-y,+z(front=cream),-z(back=navy)
+  const crd=new THREE.Mesh(mkBox(0.86,1.16,0.032),[mCream,mCream,mCream,mCream,mCream,mCardB]);
+  crd.castShadow=true; CARD.add(crd);
+  // Gold border
+  const cbEdge=new THREE.LineSegments(
+    new THREE.EdgesGeometry(new THREE.BoxGeometry(0.78,1.08,0.033)),
+    new THREE.LineBasicMaterial({color:0xd4a830,transparent:true,opacity:0.7})
+  );
+  CARD.add(cbEdge);
+  // Rose circle motif
+  const ros=new THREE.Mesh(new THREE.CircleGeometry(0.09,20),mGold);
+  ros.position.set(0,0.27,0.018); CARD.add(ros);
+  // String to ribbon
+  const csCurve=new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0,0.58,0),
+    new THREE.Vector3(-0.1,0.74,-0.13),
+    new THREE.Vector3(-0.16,0.68,-0.24)
+  ]);
+  CARD.add(new THREE.Mesh(new THREE.TubeGeometry(csCurve,10,0.007,6,false),mGold));
+
+  // Rest position in BOX local space:
+  // z = BD/2+BT+0.016+eps (flush against front face)
+  // x = BW*0.28 (right of center), y = -0.12
+  const CARD_REST_X = BW*0.28;
+  const CARD_Z = BD/2+BT+0.018;
+  CARD.position.set(CARD_REST_X+4, -0.12, CARD_Z); // start off-screen right
+  CARD.rotation.set(0, 0.12, 0.05);
+  CARD.userData.restX = CARD_REST_X;
+  CARD.userData.restZ = CARD_Z;
+
+  // ── LETTER/ENVELOPE (child of BOX, local coords) ──
+  LETTER=new THREE.Group();
+  LETTER.visible=false;
+  BOX.add(LETTER);
+
+  const env=new THREE.Mesh(mkBox(1.05,0.72,0.044),[mEnvB,mEnvB,mEnvB,mEnvB,mEnvB,mEnvFL]);
+  env.castShadow=true; LETTER.add(env);
+
+  const fShape=new THREE.Shape();
+  fShape.moveTo(-0.525,0); fShape.lineTo(0.525,0); fShape.lineTo(0,-0.38); fShape.closePath();
+  const flap=new THREE.Mesh(new THREE.ShapeGeometry(fShape),
+    new THREE.MeshStandardMaterial({color:0xe8d4b8,roughness:.88,side:THREE.DoubleSide}));
+  flap.position.set(0,0.36,0.024); LETTER.add(flap);
+
+  const bShape=new THREE.Shape();
+  bShape.moveTo(-0.525,0); bShape.lineTo(0.525,0); bShape.lineTo(0,0.32); bShape.closePath();
+  const bflap=new THREE.Mesh(new THREE.ShapeGeometry(bShape),
+    new THREE.MeshStandardMaterial({color:0xe0cbb0,roughness:.88,side:THREE.DoubleSide}));
+  bflap.position.set(0,-0.36,0.023); LETTER.add(bflap);
+
+  // Wax seal
+  const wax=new THREE.Mesh(new THREE.CylinderGeometry(0.085,0.085,0.026,20),mGold);
+  wax.rotation.x=Math.PI/2; wax.position.set(0,0,0.048); LETTER.add(wax);
+
+  // String to ribbon
+  const lsCurve=new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0,0.3,0),
+    new THREE.Vector3(0.12,0.46,-0.13),
+    new THREE.Vector3(0.18,0.42,-0.25)
+  ]);
+  LETTER.add(new THREE.Mesh(new THREE.TubeGeometry(lsCurve,10,0.007,6,false),mGold));
+
+  const LTR_REST_X = -BW*0.28;
+  const LTR_Z = BD/2+BT+0.024;
+  LETTER.position.set(LTR_REST_X-4, -0.36, LTR_Z); // start off-screen left
+  LETTER.rotation.set(0,-0.1,-0.04);
+  LETTER.userData.restX = LTR_REST_X;
+  LETTER.userData.restZ = LTR_Z;
+
+  // ── PARTICLES ──
+  const PC=140;
+  pGeo=new THREE.BufferGeometry();
+  pPos=new Float32Array(PC*3);
+  pVel=[]; pLife=[];
+  const pC=new Float32Array(PC*3);
+  const pCols=[[1,.86,.3],[.25,.52,.9],[1,.95,.85],[.86,.65,.08],[.9,.9,.72]];
+  for(let i=0;i<PC;i++){
+    pPos[i*3]=0; pPos[i*3+1]=-30; pPos[i*3+2]=0;
+    pVel.push({x:0,y:0,z:0,l:0}); pLife.push(1);
+    const c=pCols[Math.floor(Math.random()*pCols.length)];
+    pC[i*3]=c[0]; pC[i*3+1]=c[1]; pC[i*3+2]=c[2];
+  }
+  pGeo.setAttribute('position',new THREE.BufferAttribute(pPos,3));
+  pGeo.setAttribute('color',new THREE.BufferAttribute(pC,3));
+  PARTS=new THREE.Points(pGeo,new THREE.PointsMaterial({size:.085,vertexColors:true,transparent:true,opacity:.9,sizeAttenuation:true,blending:THREE.AdditiveBlending,depthWrite:false}));
+  PARTS.visible=false;
+  scene.add(PARTS);
+}
+
+function burst(ox,oy,oz){
+  burstOn=true; PARTS.visible=true;
+  const PC=pVel.length;
+  for(let i=0;i<PC;i++){
+    pPos[i*3]=ox; pPos[i*3+1]=oy; pPos[i*3+2]=oz;
+    const th=Math.random()*Math.PI*2, ph=Math.random()*Math.PI;
+    const sp=0.05+Math.random()*0.09;
+    pVel[i]={x:Math.sin(ph)*Math.cos(th)*sp,y:Math.abs(Math.cos(ph))*sp+0.022,z:Math.sin(ph)*Math.sin(th)*sp,l:1};
+    pLife[i]=0.7+Math.random()*0.85;
+  }
+  pGeo.attributes.position.needsUpdate=true;
+}
+
+// ─────────────────────────────────────────────
+//  UI HELPERS
+// ─────────────────────────────────────────────
+const DOTS=Array.from({length:7},(_,i)=>document.getElementById('d'+i));
+const LBL=document.getElementById('lbl');
+
+function setS(n,t){
+  DOTS.forEach((d,i)=>d.classList.toggle('on',i<=n));
+  gsap.killTweensOf(LBL);
+  gsap.to(LBL,{opacity:0,y:-6,duration:.22,onComplete:()=>{LBL.textContent=t;gsap.to(LBL,{opacity:1,y:0,duration:.3});}});
+}
+
+// ─────────────────────────────────────────────
+//  SEQUENCE — all GSAP tweens target PLAIN OBJECTS only
+// ─────────────────────────────────────────────
+let activeTL=null;
+
+// Proxy state objects — all plain JS, GSAP tweens these safely
+let S = {}; // re-created each run
+
+function initStates(){
+  S = {
+    box:   {x:0, y:BOX_CY, z:0, rx:0, ry:-Math.PI/3, rz:0, sx:.001, sy:.001, sz:.001},
+    lid:   {rx:0},
+    cam:   {x:0, y:7, z:16, fov:44},
+    gift:  {wx:0, wy:BOX_CY+BH/2+5.5, wz:0, ry:Math.PI/5, vis:false},
+    rib:   {sx:.001, sy:.001, sz:.001, vis:false},
+    bow:   {sx:.001, sy:.001, sz:.001, ry:Math.PI, floatY:0, vis:false},
+    card:  {lx:CARD.userData.restX+5, vis:false},
+    ltr:   {lx:LETTER.userData.restX-5, vis:false},
+    tissue:{vis:false},
+    lidDone:false,
+    giftHidden:false,
+  };
+}
+
+function applyStates(){
+  if(!BOX||!GIFT||!CARD||!LETTER) return;
+
+  // BOX
+  BOX.position.set(S.box.x, S.box.y, S.box.z);
+  BOX.rotation.set(S.box.rx, S.box.ry, S.box.rz);
+  BOX.scale.set(S.box.sx, S.box.sy, S.box.sz);
+
+  // LID pivot rotation
+  LIDPIV.rotation.x = S.lid.rx;
+
+  // CAMERA
+  cam.position.set(S.cam.x, S.cam.y, S.cam.z);
+  if(cam.fov !== S.cam.fov){ cam.fov=S.cam.fov; cam.updateProjectionMatrix(); }
+
+  // GIFT
+  if(S.gift.vis && !S.giftHidden){ GIFT.visible=true; }
+  else if(S.giftHidden){ GIFT.visible=false; }
+  GIFT.position.set(S.gift.wx, S.gift.wy, S.gift.wz);
+  GIFT.rotation.set(0, S.gift.ry, 0);
+
+  // TISSUE visibility
+  TISSUE.visible = S.tissue.vis && !S.giftHidden;
+
+  // RIBBON
+  if(S.rib.vis){ RIBBON.visible=true; }
+  RIBBON.scale.set(S.rib.sx, S.rib.sy, S.rib.sz);
+
+  // BOW — uses floatY as offset
+  if(S.bow.vis){ BOW.visible=true; }
+  BOW.scale.set(S.bow.sx, S.bow.sy, S.bow.sz);
+  BOW.rotation.y = S.bow.ry;
+  BOW.position.y = (BH/2+LH+0.115+0.06) + S.bow.floatY;
+
+  // CARD — local X offset from rest + always resting Z
+  CARD.position.x = CARD.userData.restX + S.card.lx;
+  CARD.position.y = -0.12;
+  CARD.position.z = CARD.userData.restZ;
+  if(S.card.vis){ CARD.visible=true; }
+
+  // LETTER
+  LETTER.position.x = LETTER.userData.restX + S.ltr.lx;
+  LETTER.position.y = -0.36;
+  LETTER.position.z = LETTER.userData.restZ;
+  if(S.ltr.vis){ LETTER.visible=true; }
+}
+
+function runSeq(){
+  DOTS.forEach(d=>d.classList.remove('on'));
+  initStates();
+
+  // Apply initial states immediately
+  BOX.scale.set(.001,.001,.001);
+  BOX.position.set(0,BOX_CY,0);
+  BOX.rotation.set(0,-Math.PI/3,0);
+  LIDPIV.rotation.set(0,0,0);
+  RIBBON.visible=false; RIBBON.scale.set(.001,.001,.001);
+  BOW.visible=false; BOW.scale.set(.001,.001,.001);
+  GIFT.visible=false; TISSUE.visible=false;
+  CARD.visible=false; LETTER.visible=false;
+  PARTS.visible=false; burstOn=false;
+  CARD.position.set(CARD.userData.restX+5,-0.12,CARD.userData.restZ);
+  LETTER.position.set(LETTER.userData.restX-5,-0.36,LETTER.userData.restZ);
+
+  if(activeTL){ activeTL.kill(); }
+  const tl = gsap.timeline({delay:.5, onUpdate:applyStates});
+  activeTL=tl;
+
+  // ─ STEP 0: Box appears ─
+  tl.add(()=>setS(0,'The box takes shape…'))
+  .to(S.box,{sx:1,sy:1,sz:1,duration:1.1,ease:'back.out(1.8)'})
+  .to(S.box,{ry:Math.PI*.20,duration:1.3,ease:'power2.out'},'<')
+  .to(S.cam,{x:.8,y:4.6,z:11,fov:44,duration:1.4,ease:'power2.out'},'<')
+
+  // ─ STEP 1: Lid opens ─
+  .add(()=>setS(1,'The lid opens…'),'+=.35')
+  .to(S.lid,{rx:-Math.PI*.82,duration:1.1,ease:'back.out(1.15)'})
+
+  // ─ STEP 2: Tissue floats in + camera dips inside ─
+  .add(()=>{
+    setS(2,'Lining with tissue…');
+    S.tissue.vis=true;
+    TISSUE.visible=true;
+    TISSUE.children.forEach((t,i)=>{
+      t.position.y=4; t.scale.set(.01,.01,.01);
+      gsap.to(t.position,{y:i*.025,duration:.72,delay:i*.1,ease:'bounce.out'});
+      gsap.to(t.scale,{x:1,y:1,z:1,duration:.48,delay:i*.1,ease:'power2.out'});
+    });
+  },'+=.4')
+  .to(S.cam,{x:2.2,y:7.2,z:7,fov:55,duration:1.1,ease:'power2.inOut'})
+
+  // ─ STEP 3: Gift descends into box ─
+  .add(()=>{
+    setS(3,'Placing the gift inside…');
+    S.gift.vis=true; S.giftHidden=false;
+    GIFT.visible=true;
+    S.gift.wx=0; S.gift.wy=BOX_CY+BH/2+5.5; S.gift.wz=0.1; S.gift.ry=Math.PI*.22;
+  },'+=.45')
+  .to(S.gift,{wy:BOX_CY+BH/2-1.0,duration:1.2,ease:'power3.in'})
+  .to(S.gift,{ry:0,duration:1.0,ease:'power2.out'},'<')
+  .to(S.gift,{wy:BOX_CY+BH/2-1.2,duration:.18,ease:'power2.in'})
+  .to(S.gift,{wy:BOX_CY+BH/2-1.05,duration:.3,ease:'elastic.out(1,.5)'})
+  .to(S.cam,{x:3.2,y:5,z:9,fov:50,duration:1.1,ease:'power2.inOut'},'<-0.8')
+
+  // ─ STEP 4: Hold so gift is visible, THEN close lid ─
+  .add(()=>setS(4,'Closing the lid…'),'+=1.0')
+  .to(S.lid,{rx:0,duration:1.0,ease:'power3.in'})
+  // Gift hidden AFTER lid fully closes
+  .add(()=>{ S.giftHidden=true; S.tissue.vis=false; },'>')
+  .to(S.cam,{x:0,y:4.2,z:12,fov:44,duration:1.0,ease:'power2.inOut'},'<.1')
+  .to(S.box,{ry:-Math.PI*.14,duration:.9,ease:'power2.out'},'>-.2')
+
+  // ─ STEP 5: Ribbon ─
+  .add(()=>{
+    setS(4,'Wrapping with ribbon…');
+    S.rib.vis=true; RIBBON.visible=true;
+  },'+=.3')
+  .to(S.rib,{sx:1,sy:1,sz:1,duration:.8,ease:'back.out(1.3)'})
+  .to(S.cam,{x:4,y:4,z:10,duration:.9,ease:'power2.inOut'},'<')
+  .to(S.box,{ry:Math.PI*.08,duration:.8,ease:'power2.inOut'},'<.2')
+
+  // ─ Bow springs on ─
+  .add(()=>{
+    setS(5,'Tying the bow…');
+    S.bow.vis=true; BOW.visible=true;
+    S.bow.sx=.001; S.bow.sy=.001; S.bow.sz=.001; S.bow.ry=Math.PI;
+    // Get world position of bow top for burst
+    BOX.updateMatrixWorld(true);
+    const wp=new THREE.Vector3(0,BH/2+LH+.5,0).applyMatrix4(BOX.matrixWorld);
+    burst(wp.x,wp.y+.4,wp.z);
+  },'+=.8')
+  .to(S.bow,{sx:1,sy:1,sz:1,ry:0,duration:.78,ease:'elastic.out(1.1,.42)'})
+
+  // ─ STEP 6: Card & Letter swing in ─
+  .add(()=>{
+    setS(5,'Attaching the card & letter…');
+    S.card.vis=true; S.card.lx=5; CARD.visible=true;
+    S.ltr.vis=true;  S.ltr.lx=-5; LETTER.visible=true;
+  },'+=.85')
+  .to(S.card,{lx:0,duration:1.0,ease:'back.out(1.4)'})
+  .to(S.ltr,{lx:0,duration:1.0,delay:.14,ease:'back.out(1.4)'},'<')
+  .to(S.cam,{x:-2,y:4,z:12,fov:42,duration:1.5,ease:'power2.inOut'})
+  .to(S.box,{ry:Math.PI*.14,duration:2.2,ease:'power1.inOut'})
+
+  // ─ Final ─
+  .add(()=>{
+    setS(6,'Your gift is ready ✦');
+    BOX.updateMatrixWorld(true);
+    const wp=new THREE.Vector3(0,BH/2+LH+.5,0).applyMatrix4(BOX.matrixWorld);
+    burst(wp.x,wp.y,wp.z);
+    setTimeout(()=>{
+      document.getElementById('hints').classList.add('show');
+      document.getElementById('replay').classList.add('show');
+    },500);
+  })
+  // Idle: bow gently floats, box slow turns
+  .to(S.bow,{floatY:.12,duration:2,ease:'sine.inOut',yoyo:true,repeat:-1},'>')
+  .to(S.box,{ry:-Math.PI*.06,duration:5.5,ease:'sine.inOut',yoyo:true,repeat:-1},'<');
+}
+
+// ─────────────────────────────────────────────
+//  RENDER LOOP
+// ─────────────────────────────────────────────
+const clock=new THREE.Clock();
+let shimmerT=0;
+
+function loop(){
+  requestAnimationFrame(loop);
+  const dt=clock.getDelta();
+  shimmerT+=dt;
+
+  // Particles
+  if(burstOn){
+    let alive=false;
+    for(let i=0;i<pVel.length;i++){
+      const v=pVel[i];
+      if(v.l>0){
+        alive=true;
+        pPos[i*3]+=v.x; pPos[i*3+1]+=v.y; pPos[i*3+2]+=v.z;
+        v.y-=0.0016; v.l-=dt/pLife[i];
+      } else { pPos[i*3+1]=-30; }
+    }
+    pGeo.attributes.position.needsUpdate=true;
+    if(!alive){ burstOn=false; PARTS.visible=false; }
+  }
+
+  // Bottle glow shimmer
+  if(GIFT&&GIFT.visible&&GIFT.children[1]){
+    GIFT.children[1].material.opacity=.18+Math.sin(shimmerT*2.4)*.13;
+  }
+
+  // Point light follows bow
+  if(BOW&&BOW.visible){
+    const bwp=new THREE.Vector3();
+    BOW.getWorldPosition(bwp);
+    ptL.position.set(bwp.x+1.5,bwp.y+2.5,bwp.z+4);
+  }
+
+  cam.lookAt(CAM_LOOK);
+  R.render(scene,cam);
+}
+
+// ─────────────────────────────────────────────
+//  INIT
+// ─────────────────────────────────────────────
+buildAll();
+runSeq();
+loop();
+
+// ─────────────────────────────────────────────
+//  REPLAY
+// ─────────────────────────────────────────────
+document.getElementById('replay').addEventListener('click',()=>{
+  document.getElementById('replay').classList.remove('show');
+  document.getElementById('hints').classList.remove('show');
+  if(activeTL){ activeTL.kill(); activeTL=null; }
+  buildAll();
+  setTimeout(runSeq,80);
+});
+
+// ─────────────────────────────────────────────
+//  MODALS
+// ─────────────────────────────────────────────
+function closeMod(id){document.getElementById(id).classList.remove('open');}
+document.getElementById('btnCard').onclick=()=>document.getElementById('mCard').classList.add('open');
+document.getElementById('btnLetter').onclick=()=>document.getElementById('mLetter').classList.add('open');
+['mCard','mLetter'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',function(e){if(e.target===this)closeMod(id);});
+});
+
+// ─────────────────────────────────────────────
+//  RESIZE
+// ─────────────────────────────────────────────
+window.addEventListener('resize',()=>{
+  cam.aspect=innerWidth/innerHeight;
+  cam.updateProjectionMatrix();
+  R.setSize(innerWidth,innerHeight);
+});
+</script>
+</body>
+</html>

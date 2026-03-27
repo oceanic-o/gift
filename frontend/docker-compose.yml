@@ -1,0 +1,18 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: "/api/v1"
+        VITE_GOOGLE_CLIENT_ID: "${VITE_GOOGLE_CLIENT_ID:-}"
+    container_name: gift_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    networks:
+      - backend_gift_network
+
+networks:
+  backend_gift_network:
+    external: true

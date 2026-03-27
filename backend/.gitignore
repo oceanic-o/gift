@@ -1,0 +1,24 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+htmlcov/
+.coverage
+*.egg-info/
+dist/
+build/
+*.log
+data/*.csv
+!data/.gitkeep
+
+# Local database storage (do not commit raw DB files)
+pgdata/
+backups/
+
+# Frontend
+node_modules/
+.next/
