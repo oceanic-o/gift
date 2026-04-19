@@ -37,3 +37,9 @@ frontend/.env
 figma-assets/
 figma-html-export/
 .codex
+
+
+```ignore list
+!setup_guide.md
+!README.md
+```
