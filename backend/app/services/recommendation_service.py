@@ -264,6 +264,7 @@ class RecommendationService:
         self,
         user_id: int,
         gift_id: int,
+        model: str | None = None,
         occasion: str | None = None,
         relationship: str | None = None,
         min_price: float | None = None,
@@ -277,6 +278,18 @@ class RecommendationService:
         Metrics include model sub-scores, confidence, and feature-match breakdown.
         Also attaches latest global evaluation (precision/recall/f1) for reference.
         """
+        model_aliases = {
+            "content": "content",
+            "content_based": "content",
+            "collaborative": "collaborative",
+            "collab": "collaborative",
+            "hybrid": "hybrid",
+            "knowledge": "knowledge",
+            "knowledge_based": "knowledge",
+            "rag": "rag",
+        }
+        selected_model = model_aliases.get((model or "hybrid").strip().lower(), "hybrid")
+
         recommender = get_recommender()
         if not recommender._trained:
             await recommender.train(self.db)
@@ -409,8 +422,18 @@ class RecommendationService:
             if max_price is not None and gift.price > max_price:
                 price_fit = False
 
-        # Attach latest global metrics for reference (fallback to on-the-fly computation)
-        latest_metric = await self.metric_repo.get_latest_by_model("hybrid")
+        selected_model_score_map: dict[str, float | None] = {
+            "content": float(content_score),
+            "collaborative": float(collab_score),
+            "hybrid": float(hybrid_score),
+            "knowledge": float(knowledge_score) if knowledge_score is not None else None,
+            "rag": None,
+        }
+        selected_model_score = selected_model_score_map.get(selected_model)
+        selected_model_similarity = selected_model_score if selected_model != "rag" else None
+
+        # Attach latest global metrics for the selected model
+        latest_metric = await self.metric_repo.get_latest_by_model(selected_model)
         model_accuracy = None
         model_error_rate = None
         model_mae = None
@@ -428,24 +451,62 @@ class RecommendationService:
             model_f1 = float(latest_metric.f1_score)
             model_accuracy = float(latest_metric.accuracy)
         else:
-            # Fallback: compute metrics from current hybrid scoring
-            all_gifts = await self.gift_repo.get_all_gifts()
-            gift_map = {g.id: g for g in all_gifts}
-            metric_fallback = self._compute_metrics(
-                hybrid_scored,
-                set(liked_ids),
-                set(gift_map.keys()),
-                top_n=min(settings.TOP_N_RECOMMENDATIONS, 10),
-                gift_map=gift_map,
-                occasion=_clean(occasion),
-                relationship=_clean(relationship),
-                min_price=min_price,
-                max_price=max_price,
-                age=_clean(age),
-                gender=_clean(gender),
-                hobbies=_clean(hobbies),
-                prefer_context=True,
-            )
+            # Fallback: compute metrics from currently selected model scoring when feasible.
+            all_gifts_for_metrics = await self.gift_repo.get_all_gifts()
+            metric_gift_map = {g.id: g for g in all_gifts_for_metrics}
+
+            metric_scored: list[dict] = []
+            if selected_model == "content":
+                metric_scored = content_results
+            elif selected_model == "collaborative":
+                metric_scored = collab_results
+            elif selected_model == "hybrid":
+                metric_scored = hybrid_scored
+            elif selected_model == "knowledge":
+                metric_scored = kb.score_gifts(
+                    gifts=[
+                        {
+                            "id": g.id,
+                            "title": g.title,
+                            "description": g.description or "",
+                            "occasion": g.occasion or "",
+                            "relationship": g.relationship or "",
+                            "category_name": g.category.name if g.category else "",
+                            "tags": getattr(g, "tags", "") or "",
+                            "age_group": getattr(g, "age_group", "") or "",
+                            "price": g.price,
+                        }
+                        for g in all_gifts_for_metrics
+                    ],
+                    top_n=top_pool,
+                    occasion=_clean(occasion),
+                    relationship=_clean(relationship),
+                    min_price=min_price,
+                    max_price=max_price,
+                    query_text=query_text,
+                    age=_clean(age),
+                    gender=_clean(gender),
+                    hobbies=_clean(hobbies),
+                )
+
+            metric_fallback: dict = {}
+            if metric_scored:
+                metric_fallback = self._compute_metrics(
+                    metric_scored,
+                    set(liked_ids),
+                    set(metric_gift_map.keys()),
+                    top_n=min(settings.TOP_N_RECOMMENDATIONS, 10),
+                    gift_map=metric_gift_map,
+                    occasion=_clean(occasion),
+                    relationship=_clean(relationship),
+                    min_price=min_price,
+                    max_price=max_price,
+                    age=_clean(age),
+                    gender=_clean(gender),
+                    hobbies=_clean(hobbies),
+                    prefer_context=True,
+                )
+
             def _num(key: str) -> float | None:
                 raw = metric_fallback.get(key)
                 if isinstance(raw, (int, float)):
@@ -494,6 +555,9 @@ class RecommendationService:
             model_tn=model_tn,
             model_fn=model_fn,
             model_metrics_mode=model_metrics_mode,
+            selected_model=selected_model,
+            selected_model_score=selected_model_score,
+            selected_model_similarity=selected_model_similarity,
         )
 
         from app.schemas.gift import GiftResponse
@@ -1080,9 +1144,23 @@ class RecommendationService:
         predicted_score_map = {r["id"]: float(r.get("score", 0.0)) for r in scored[:top_n]}
         coverage = len(recommended_ids) / len(all_gift_ids) if all_gift_ids else 0.0
 
+        # Detect whether the request contains meaningful context constraints.
+        # When no context is provided, interaction history is the only reliable signal.
+        has_context_constraints = any(
+            [
+                bool(occasion),
+                bool(relationship),
+                min_price is not None,
+                max_price is not None,
+                bool(age),
+                bool(gender),
+                bool(hobbies),
+            ]
+        )
+
         mode = "interaction"
         positive_ids: set[int]
-        if liked_ids and not prefer_context:
+        if liked_ids and (not prefer_context or not has_context_constraints):
             positive_ids = set(liked_ids)
         else:
             mode = "context"
@@ -1101,7 +1179,17 @@ class RecommendationService:
                     )
                     if validity.get("is_valid_recommendation") is True:
                         pool_ids.add(gid)
-            positive_ids = pool_ids or set(all_gift_ids)
+
+            if pool_ids:
+                positive_ids = pool_ids
+            elif liked_ids:
+                # Fallback: if contextual pool is empty but we have interaction history,
+                # use interaction positives instead of treating the full catalog as positive.
+                mode = "interaction_fallback"
+                positive_ids = set(liked_ids)
+            else:
+                # No trustworthy positives available.
+                positive_ids = set()
 
         k = max(1, top_n)
         rel_at_k = [1 if gid in positive_ids else 0 for gid in ranked_ids[:k]]
@@ -1150,12 +1238,14 @@ class RecommendationService:
         recall = recall_at_k
         f1 = f1_at_k
 
+        # Compute classification-style diagnostics in all modes so persisted metrics
+        # are comparable and do not silently collapse to zeros.
         accuracy: float | None = None
         error_rate: float | None = None
         mae: float | None = None
         rmse: float | None = None
-        if mode == "interaction":
-            eval_ids = sorted(positive_ids | recommended_ids) or sorted(all_gift_ids)
+        eval_ids = sorted(positive_ids | recommended_ids)
+        if eval_ids:
             y_true = [1 if gid in positive_ids else 0 for gid in eval_ids]
             y_pred = [1 if gid in recommended_ids else 0 for gid in eval_ids]
             y_pred_score = [predicted_score_map.get(gid, 0.0) for gid in eval_ids]
@@ -1183,11 +1273,11 @@ class RecommendationService:
             "error_rate": round(_clamp(error_rate), 4) if error_rate is not None else None,
             "mae": round(max(mae, 0.0), 4) if mae is not None else None,
             "rmse": round(max(rmse, 0.0), 4) if rmse is not None else None,
-            "confusion_matrix": cm if mode == "interaction" else None,
-            "tp": int(tp) if mode == "interaction" else None,
-            "fp": int(fp) if mode == "interaction" else None,
-            "tn": int(tn) if mode == "interaction" else None,
-            "fn": int(fn) if mode == "interaction" else None,
+            "confusion_matrix": cm,
+            "tp": int(tp),
+            "fp": int(fp),
+            "tn": int(tn),
+            "fn": int(fn),
             "coverage": round(_clamp(coverage), 4),
             "recommended_count": len(recommended_ids),
             "metrics_mode": mode,

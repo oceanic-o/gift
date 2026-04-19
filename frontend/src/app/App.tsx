@@ -112,6 +112,15 @@ export default function App() {
   useEffect(() => {
     const handler = () => setCurrentStep("admin");
     window.addEventListener("nav:admin", handler);
+    (window as any).__setStep__ = (step: Step) => setCurrentStep(step);
+    (window as any).__setMockState__ = () => {
+      setFormData({ occasion: "Birthday", age: "30", gender: "Any", hobbies: "Reading, Gaming", relation: "Friend", budgetMax: 50 });
+      setSelectedGift({ gift_id: 1, name: "Sample Gift", price: "50", description: "A great sample gift", category: "General", image_url: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?q=80&w=2000" });
+      setSelectedCard("card-1");
+      setRecipientName("Alice");
+      setSenderName("Bob");
+      setPersonalMessage("Happy Birthday!");
+    };
     return () => window.removeEventListener("nav:admin", handler);
   }, []);
 

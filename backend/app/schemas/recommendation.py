@@ -110,6 +110,9 @@ class GiftMetrics(BaseModel):
     model_tn: Optional[int] = None
     model_fn: Optional[int] = None
     model_metrics_mode: Optional[str] = None
+    selected_model: Optional[str] = None
+    selected_model_score: Optional[float] = None
+    selected_model_similarity: Optional[float] = None
 
 
 class GiftDetailsWithMetrics(BaseModel):

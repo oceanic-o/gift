@@ -433,7 +433,7 @@ class AdminService:
 
     async def _evaluate_all_models_contextual(
         self,
-        max_users: int = 1,
+        max_users: int | None = None,
         top_n: int = 6,
     ) -> dict:
         """Evaluate all 5 models using stored user profile context + interactions.
@@ -450,7 +450,10 @@ class AdminService:
                 "results": [],
             }
 
-        sampled_users = user_ids[:max_users]
+        if max_users is None or max_users <= 0:
+            sampled_users = user_ids
+        else:
+            sampled_users = user_ids[:max_users]
         rec_service = RecommendationService(self.db)
 
         metric_keys = [
@@ -512,7 +515,7 @@ class AdminService:
                     },
                 )
                 metrics = model.metrics or {}
-                bucket["count"] += 1
+                numeric_observed = False
                 for key in metric_keys:
                     raw = metrics.get(key)
                     if key == "f1" and raw is None:
@@ -520,9 +523,14 @@ class AdminService:
                     if isinstance(raw, (int, float)):
                         bucket["sums"][key] += float(raw)
                         bucket["valid_counts"][key] += 1
+                        numeric_observed = True
+                if numeric_observed:
+                    bucket["count"] += 1
 
         model_results: list[dict] = []
         for model_name, data in sorted(aggregates.items()):
+            if int(data["count"]) <= 0:
+                continue
             row: dict[str, float | int | str | None] = {
                 "model_name": model_name,
                 "users_evaluated": int(data["count"]),
@@ -555,7 +563,8 @@ class AdminService:
     async def evaluate_model(self, cross_validate: bool = False) -> dict:
         """Run evaluation for all available models and store summary metrics."""
         _ = cross_validate  # preserved for API compatibility
-        return await self._evaluate_all_models_contextual(max_users=1, top_n=6)
+        # Evaluate across the full interaction user set for stable model-level metrics.
+        return await self._evaluate_all_models_contextual(max_users=None, top_n=6)
 
     async def tune_and_evaluate(self) -> dict:
         """Grid search simple weight combos and return metrics series for plotting."""

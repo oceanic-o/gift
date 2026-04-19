@@ -6,6 +6,63 @@ Recommended hostnames:
 - `gift.yourdomain.com` -> frontend
 - `api.yourdomain.com` -> backend API
 
+## Quick Copy-Paste (Fish Shell, Central India)
+
+Use one section at a time.
+
+### Section 1: Set subscription and variables
+```fish
+set SUB 19589111-1a6c-4f61-8c31-6d2c939b8c33
+az account set --subscription $SUB
+
+set RG gift-rg
+set VM gift-vm
+set USER azureuser
+set LOC centralindia
+set SIZE Standard_D2s_v3
+```
+
+### Section 2A: Recreate resource group (use this if group already exists in wrong region)
+
+```fish
+az group delete -n $RG --yes --no-wait
+az group wait -n $RG --deleted
+az group create -n $RG -l $LOC
+```
+
+### Section 2B: Create resource group (use this if group does not exist)
+
+```fish
+az group create -n $RG -l $LOC
+```
+
+### Section 3: Create VM (single line)
+
+```fish
+az vm create -g $RG -n $VM -l $LOC --image Ubuntu2204 --size $SIZE --admin-username $USER --generate-ssh-keys
+```
+
+### Section 4: Open ports
+
+```fish
+az vm open-port -g $RG -n $VM --port 22
+az vm open-port -g $RG -n $VM --port 80
+az vm open-port -g $RG -n $VM --port 443
+```
+
+### Section 5: Get public IP
+
+```fish
+set IP (az vm show -d -g $RG -n $VM --query publicIps -o tsv)
+echo $IP
+```
+
+### Section 6: SSH to VM
+
+```fish
+ssh $USER@$IP
+```
+
 ## 1. Prerequisites
 - Azure subscription + `az` CLI
 - Cloudflare-managed domain

@@ -561,7 +561,7 @@ export function GiftRecommendation({
   const [detailsErr, setDetailsErr] = useState<string | null>(null);
   const [details, setDetails] = useState<GiftDetailsWithMetrics | null>(null);
 
-  async function openDetails(giftId: number) {
+  async function openDetails(giftId: number, selectedModel: MK) {
     setDetailsOpen(true);
     setDetailsLoading(true);
     setDetailsErr(null);
@@ -570,6 +570,7 @@ export function GiftRecommendation({
       const d = await getGiftDetails(
         giftId,
         {
+          model: selectedModel,
           occasion: formData.occasion || undefined,
           relationship: formData.relation || undefined,
           min_price: minP,
@@ -811,7 +812,7 @@ export function GiftRecommendation({
                         onSelect={() =>
                           setPicked(picked?.id === g.id ? null : g)
                         }
-                        onDetails={() => openDetails(g.id)}
+                        onDetails={() => openDetails(g.id, model as MK)}
                         mk={model as MK}
                       />
                     ))}
@@ -1052,6 +1053,37 @@ export function GiftRecommendation({
                       ),
                     }),
                   );
+                  const currentModelKey = model as MK;
+                  const selectedModelScore =
+                    metricAsNumber(compareGift?.score) ??
+                    metricAsNumber(details.metrics.selected_model_score) ??
+                    null;
+                  const selectedModelSimilarity = (() => {
+                    if (!compareGift) return null;
+                    if (currentModelKey === "content") {
+                      return compareGift.content_cosine_similarity ?? null;
+                    }
+                    if (currentModelKey === "collaborative") {
+                      return compareGift.collaborative_cosine_similarity ?? null;
+                    }
+                    if (currentModelKey === "knowledge") {
+                      return compareGift.knowledge_similarity ?? null;
+                    }
+                    if (currentModelKey === "rag") {
+                      return compareGift.rag_similarity ?? null;
+                    }
+                    return compareGift.query_cosine_similarity ?? null;
+                  })();
+                  const selectedModelSimilarityLabel =
+                    currentModelKey === "content"
+                      ? "Content similarity"
+                      : currentModelKey === "collaborative"
+                        ? "Collaborative similarity"
+                        : currentModelKey === "knowledge"
+                          ? "Knowledge similarity"
+                          : currentModelKey === "rag"
+                            ? "RAG similarity"
+                            : "Query cosine";
                   const diagnosticsBars = [
                     {
                       name: "error_rate",
@@ -1074,69 +1106,112 @@ export function GiftRecommendation({
                   // Scores bar chart
                   return (
                     <>
-                      {/* Scores bar chart */}
-                      <div className="bg-white rounded-lg border p-3">
-                        <h4 className="text-sm font-semibold mb-2">
-                          Model sub-scores
-                        </h4>
-                        <div className="h-40">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart
-                              data={[
-                                {
-                                  name: "scores",
-                                  hybrid: details.metrics.hybrid_score,
-                                  content: details.metrics.content_score,
-                                  collab: details.metrics.collab_score,
-                                  knowledge:
-                                    details.metrics.knowledge_score ?? 0,
-                                },
-                              ]}
-                            >
-                              <XAxis dataKey="name" hide />
-                              <YAxis domain={[0, 1]} tick={{ fontSize: 11 }} />
-                              <Tooltip />
-                              <Legend />
-                              <Bar dataKey="hybrid" fill="#f43f5e" />
-                              <Bar dataKey="content" fill="#8b5cf6" />
-                              <Bar dataKey="collab" fill="#0ea5e9" />
-                              <Bar dataKey="knowledge" fill="#f59e0b" />
-                            </BarChart>
-                          </ResponsiveContainer>
+                      {currentModelKey === "hybrid" ? (
+                        <>
+                          {/* Hybrid sub-score breakdown */}
+                          <div className="bg-white rounded-lg border p-3">
+                            <h4 className="text-sm font-semibold mb-2">
+                              Hybrid model sub-scores
+                            </h4>
+                            <div className="h-40">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <BarChart
+                                  data={[
+                                    {
+                                      name: "scores",
+                                      hybrid: details.metrics.hybrid_score,
+                                      content: details.metrics.content_score,
+                                      collab: details.metrics.collab_score,
+                                      knowledge:
+                                        details.metrics.knowledge_score ?? 0,
+                                    },
+                                  ]}
+                                >
+                                  <XAxis dataKey="name" hide />
+                                  <YAxis domain={[0, 1]} tick={{ fontSize: 11 }} />
+                                  <Tooltip />
+                                  <Legend />
+                                  <Bar dataKey="hybrid" fill="#f43f5e" />
+                                  <Bar dataKey="content" fill="#8b5cf6" />
+                                  <Bar dataKey="collab" fill="#0ea5e9" />
+                                  <Bar dataKey="knowledge" fill="#f59e0b" />
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+                          <div className="bg-white rounded-lg border p-3">
+                            <h4 className="text-sm font-semibold mb-2">
+                              Hybrid confidence
+                            </h4>
+                            <div className="h-36">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <RadialBarChart
+                                  innerRadius="60%"
+                                  outerRadius="100%"
+                                  data={[
+                                    {
+                                      name: "conf",
+                                      value: Math.max(
+                                        0,
+                                        Math.min(1, details.metrics.confidence),
+                                      ),
+                                    },
+                                  ]}
+                                  startAngle={90}
+                                  endAngle={450}
+                                >
+                                  <RadialBar dataKey="value" fill="#10b981" />
+                                  <Tooltip
+                                    formatter={(v: number) =>
+                                      (v * 100).toFixed(0) + "%"
+                                    }
+                                  />
+                                </RadialBarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="bg-white rounded-lg border p-3">
+                          <h4 className="text-sm font-semibold mb-2">
+                            Current model gift score
+                          </h4>
+                          <div className="grid grid-cols-2 gap-2 text-xs mb-3">
+                            <div className="rounded-md border p-2 bg-gray-50">
+                              Score:{" "}
+                              {selectedModelScore != null
+                                ? selectedModelScore.toFixed(3)
+                                : "-"}
+                            </div>
+                            <div className="rounded-md border p-2 bg-gray-50">
+                              {selectedModelSimilarityLabel}:{" "}
+                              {selectedModelSimilarity != null
+                                ? selectedModelSimilarity.toFixed(3)
+                                : "-"}
+                            </div>
+                          </div>
+                          <div className="h-36">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart
+                                data={[
+                                  {
+                                    name: "current",
+                                    score: Number(selectedModelScore ?? 0),
+                                    similarity: Number(selectedModelSimilarity ?? 0),
+                                  },
+                                ]}
+                              >
+                                <XAxis dataKey="name" hide />
+                                <YAxis domain={[0, 1]} tick={{ fontSize: 11 }} />
+                                <Tooltip />
+                                <Legend />
+                                <Bar dataKey="score" fill="#f43f5e" />
+                                <Bar dataKey="similarity" fill="#0ea5e9" />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
                         </div>
-                      </div>
-                      {/* Confidence radial */}
-                      <div className="bg-white rounded-lg border p-3">
-                        <h4 className="text-sm font-semibold mb-2">
-                          Confidence
-                        </h4>
-                        <div className="h-36">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <RadialBarChart
-                              innerRadius="60%"
-                              outerRadius="100%"
-                              data={[
-                                {
-                                  name: "conf",
-                                  value: Math.max(
-                                    0,
-                                    Math.min(1, details.metrics.confidence),
-                                  ),
-                                },
-                              ]}
-                              startAngle={90}
-                              endAngle={450}
-                            >
-                              <RadialBar dataKey="value" fill="#10b981" />
-                              <Tooltip
-                                formatter={(v: number) =>
-                                  (v * 100).toFixed(0) + "%"
-                                }
-                              />
-                            </RadialBarChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
+                      )}
                       {/* Current model headline ranking metrics */}
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         <div className="bg-white rounded-lg p-3 border text-center">
@@ -1402,35 +1477,68 @@ export function GiftRecommendation({
                                 : "-"}
                             </div>
                             <div className="rounded-md border p-2 bg-gray-50">
+                              Current rank score: {compareGift.score.toFixed(3)}
+                            </div>
+                            <div className="rounded-md border p-2 bg-gray-50">
                               Query cosine:{" "}
                               {compareGift.query_cosine_similarity != null
                                 ? compareGift.query_cosine_similarity.toFixed(3)
                                 : "-"}
                             </div>
-                            <div className="rounded-md border p-2 bg-gray-50">
-                              Content sim:{" "}
-                              {compareGift.content_cosine_similarity != null
-                                ? compareGift.content_cosine_similarity.toFixed(3)
-                                : "-"}
-                            </div>
-                            <div className="rounded-md border p-2 bg-gray-50">
-                              Collaborative sim:{" "}
-                              {compareGift.collaborative_cosine_similarity != null
-                                ? compareGift.collaborative_cosine_similarity.toFixed(3)
-                                : "-"}
-                            </div>
-                            <div className="rounded-md border p-2 bg-gray-50">
-                              Knowledge sim:{" "}
-                              {compareGift.knowledge_similarity != null
-                                ? compareGift.knowledge_similarity.toFixed(3)
-                                : "-"}
-                            </div>
-                            <div className="rounded-md border p-2 bg-gray-50">
-                              RAG sim:{" "}
-                              {compareGift.rag_similarity != null
-                                ? compareGift.rag_similarity.toFixed(3)
-                                : "-"}
-                            </div>
+                            {currentModelKey === "content" && (
+                              <div className="rounded-md border p-2 bg-gray-50">
+                                Content similarity:{" "}
+                                {compareGift.content_cosine_similarity != null
+                                  ? compareGift.content_cosine_similarity.toFixed(3)
+                                  : "-"}
+                              </div>
+                            )}
+                            {currentModelKey === "collaborative" && (
+                              <div className="rounded-md border p-2 bg-gray-50">
+                                Collaborative similarity:{" "}
+                                {compareGift.collaborative_cosine_similarity != null
+                                  ? compareGift.collaborative_cosine_similarity.toFixed(3)
+                                  : "-"}
+                              </div>
+                            )}
+                            {currentModelKey === "knowledge" && (
+                              <div className="rounded-md border p-2 bg-gray-50">
+                                Knowledge similarity:{" "}
+                                {compareGift.knowledge_similarity != null
+                                  ? compareGift.knowledge_similarity.toFixed(3)
+                                  : "-"}
+                              </div>
+                            )}
+                            {currentModelKey === "rag" && (
+                              <div className="rounded-md border p-2 bg-gray-50">
+                                RAG similarity:{" "}
+                                {compareGift.rag_similarity != null
+                                  ? compareGift.rag_similarity.toFixed(3)
+                                  : "-"}
+                              </div>
+                            )}
+                            {currentModelKey === "hybrid" && (
+                              <>
+                                <div className="rounded-md border p-2 bg-gray-50">
+                                  Content similarity:{" "}
+                                  {compareGift.content_cosine_similarity != null
+                                    ? compareGift.content_cosine_similarity.toFixed(3)
+                                    : "-"}
+                                </div>
+                                <div className="rounded-md border p-2 bg-gray-50">
+                                  Collaborative similarity:{" "}
+                                  {compareGift.collaborative_cosine_similarity != null
+                                    ? compareGift.collaborative_cosine_similarity.toFixed(3)
+                                    : "-"}
+                                </div>
+                                <div className="rounded-md border p-2 bg-gray-50">
+                                  Knowledge similarity:{" "}
+                                  {compareGift.knowledge_similarity != null
+                                    ? compareGift.knowledge_similarity.toFixed(3)
+                                    : "-"}
+                                </div>
+                              </>
+                            )}
                             <div className="rounded-md border p-2 bg-gray-50">
                               Hobby overlap:{" "}
                               {compareGift.hobby_overlap != null

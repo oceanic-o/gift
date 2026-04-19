@@ -89,6 +89,7 @@ async def get_recommendations_minimal(
 @router.get("/recommendations/{gift_id}/details", response_model=GiftDetailsWithMetrics)
 async def get_recommendation_details(
     gift_id: int,
+    model: str = Query(None, description="Model to scope metrics: content|collaborative|hybrid|knowledge|rag"),
     occasion: str = Query(None),
     relationship: str = Query(None),
     min_price: float = Query(None, ge=0),
@@ -105,6 +106,7 @@ async def get_recommendation_details(
     return await service.get_gift_details_with_metrics(
         user_id=current_user.id,
         gift_id=gift_id,
+        model=model,
         occasion=occasion,
         relationship=relationship,
         min_price=min_price,

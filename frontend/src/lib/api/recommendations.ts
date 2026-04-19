@@ -63,6 +63,7 @@ export interface RecFilters {
   age?: string;
   gender?: string;
   hobbies?: string;
+  model?: "content" | "collaborative" | "hybrid" | "knowledge" | "rag";
 }
 
 export async function getRecommendations(
@@ -191,6 +192,9 @@ export interface GiftMetrics {
   model_tn?: number | null;
   model_fn?: number | null;
   model_metrics_mode?: string | null;
+  selected_model?: string | null;
+  selected_model_score?: number | null;
+  selected_model_similarity?: number | null;
 }
 
 export interface GiftDetailsWithMetrics {
@@ -227,6 +231,7 @@ export async function getGiftDetails(
   options?: RequestOptions,
 ): Promise<GiftDetailsWithMetrics> {
   const p = new URLSearchParams();
+  if (f?.model) p.set("model", f.model);
   if (f?.occasion) p.set("occasion", f.occasion);
   if (f?.relationship) p.set("relationship", f.relationship);
   if (f?.min_price != null) p.set("min_price", String(f.min_price));

@@ -24,3 +24,16 @@ backend/backups/
 node_modules/
 .next/
 frontend/.env
+
+#md files
+*.md
+*.gz
+*.zip
+*.tar
+
+
+.azure/
+
+figma-assets/
+figma-html-export/
+.codex

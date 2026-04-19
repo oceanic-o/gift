@@ -12,7 +12,7 @@ import random
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://giftuser:giftpassword@localhost:5432/giftdb")
 
-from sqlalchemy import select, text
+from sqlalchemy import select, text, func
 from app.core.database import AsyncSessionLocal
 from app.models.models import Gift, Category
 

@@ -185,4 +185,4 @@ async def test_evaluate_model(mock_db):
     result = await service.evaluate_model()
 
     assert result == expected
-    service._evaluate_all_models_contextual.assert_called_once_with(max_users=1, top_n=6)
+    service._evaluate_all_models_contextual.assert_called_once_with(max_users=None, top_n=6)
