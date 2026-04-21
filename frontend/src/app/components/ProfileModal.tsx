@@ -12,6 +12,7 @@ import {
 } from "@/lib/api/users";
 import { listHobbies } from "@/lib/api/taxonomy";
 import { MultiSelect } from "./ui/multi-select";
+import { useAuth } from "../../lib/store/auth";
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -33,6 +34,7 @@ const emptyProfile: UserProfile = {
 };
 
 export function ProfileModal({ isOpen, onClose, onProfileUpdated }: ProfileModalProps) {
+  const { user } = useAuth();
   const [profile, setProfile] = useState<UserProfile>(emptyProfile);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -135,7 +137,7 @@ export function ProfileModal({ isOpen, onClose, onProfileUpdated }: ProfileModal
             transition={{ type: "spring", damping: 24, stiffness: 260 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
           >
-            <div className="bg-white rounded-3xl p-8 max-w-2xl w-full shadow-2xl border border-rose-100">
+            <div className="bg-white rounded-3xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-rose-100">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-2xl font-semibold text-rose-700">
                   Your Profile
@@ -152,6 +154,15 @@ export function ProfileModal({ isOpen, onClose, onProfileUpdated }: ProfileModal
               {success && (
                 <p className="text-emerald-600 mb-4 text-sm">{success}</p>
               )}
+
+              <div className="mb-4">
+                <Label>Email (Read-only)</Label>
+                <Input
+                  value={user?.email || ""}
+                  readOnly
+                  className="bg-gray-50 text-gray-500 cursor-not-allowed"
+                />
+              </div>
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
