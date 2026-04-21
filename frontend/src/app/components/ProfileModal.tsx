@@ -4,15 +4,11 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { useEffect, useState } from "react";
-import {
-  changePassword,
-  getProfile,
-  updateProfile,
-  UserProfile,
-} from "@/lib/api/users";
+import { getProfile, updateProfile, changePassword, UserProfile } from "@/lib/api/users";
 import { listHobbies } from "@/lib/api/taxonomy";
 import { MultiSelect } from "./ui/multi-select";
 import { useAuth } from "../../lib/store/auth";
+import { createPortal } from "react-dom";
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -118,7 +114,9 @@ export function ProfileModal({ isOpen, onClose, onProfileUpdated }: ProfileModal
     }
   };
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <>
@@ -341,6 +339,7 @@ export function ProfileModal({ isOpen, onClose, onProfileUpdated }: ProfileModal
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
