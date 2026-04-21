@@ -170,11 +170,11 @@ export interface AdminQueryResponse {
 }
 
 export const getStats = () => api.get<AdminStats>("/admin/stats", true);
-export const getAllUsers = () => api.get<AdminUser[]>("/admin/users", true);
+export const getAllUsers = (skip: number = 0, limit: number = 100) => api.get<AdminUser[]>(`/admin/users?skip=${skip}&limit=${limit}`, true);
 export const getAllMetrics = () =>
   api.get<ModelMetric[]>("/admin/metrics", true);
-export const getAllInteractions = () =>
-  api.get<AdminInteraction[]>("/admin/interactions", true);
+export const getAllInteractions = (skip: number = 0, limit: number = 100) =>
+  api.get<AdminInteraction[]>(`/admin/interactions?skip=${skip}&limit=${limit}`, true);
 export const retrainModel = () =>
   api.post<{ message: string }>("/admin/retrain", {}, true, {
     timeoutMs: 600000,
@@ -245,8 +245,8 @@ export const getDatabaseSchema = () =>
 export const runAdminQuery = (payload: AdminQueryRequest) =>
   api.post<AdminQueryResponse>("/admin/db/query", payload, true);
 
-export const listGifts = (limit = 50) =>
-  api.get<AdminGift[]>(`/gifts/?limit=${limit}`, true);
+export const listGifts = (skip: number = 0, limit: number = 50) =>
+  api.get<AdminGift[]>(`/gifts/?skip=${skip}&limit=${limit}`, true);
 export const createGift = (payload: GiftCreatePayload) =>
   api.post<AdminGift>("/gifts/", payload, true);
 export const deleteGift = (giftId: number) =>

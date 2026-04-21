@@ -2,6 +2,8 @@ import { motion } from "motion/react";
 import { Gift, LogOut, LayoutDashboard } from "lucide-react";
 import { Button } from "./ui/button";
 import { useAuth } from "../../lib/store/auth";
+import { ProfileModal } from "./ProfileModal";
+import { useState } from "react";
 
 interface NavbarProps {
   onSignIn?: () => void;
@@ -23,6 +25,7 @@ export function Navbar({
   onProfileClick,
 }: NavbarProps) {
   const { user, isLoggedIn, isAdmin, logout } = useAuth();
+  const [profileOpen, setProfileOpen] = useState(false);
 
   const handleAdminClick = () => {
     if (onAdminClick) {
@@ -124,9 +127,12 @@ export function Navbar({
                   👋 {user?.name}
                 </button>
               ) : (
-                <span className="text-gray-700 font-medium">
+                <button
+                  onClick={() => setProfileOpen(true)}
+                  className="text-gray-700 font-medium hover:text-rose-600 transition-colors"
+                >
                   👋 {user?.name}
-                </span>
+                </button>
               )}
               <Button
                 variant="ghost"
@@ -156,6 +162,7 @@ export function Navbar({
           ) : null}
         </div>
       </div>
+      <ProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} />
     </motion.nav>
   );
 }

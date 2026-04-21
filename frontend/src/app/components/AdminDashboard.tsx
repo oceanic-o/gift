@@ -160,6 +160,11 @@ export function AdminDashboard({ onBack, onLogoClick }: AdminDashboardProps) {
     text: string;
   } | null>(null);
 
+  const ITEMS_PER_PAGE = 10;
+  const [usersPage, setUsersPage] = useState(1);
+  const [interactionsPage, setInteractionsPage] = useState(1);
+  const [giftsPage, setGiftsPage] = useState(1);
+
   const loadEnvSettings = useCallback(async () => {
     setLoading(true);
     try {
@@ -240,30 +245,30 @@ export function AdminDashboard({ onBack, onLogoClick }: AdminDashboardProps) {
 
   const loadUsers = useCallback(async () => {
     try {
-      const data = await getAllUsers();
+      const data = await getAllUsers((usersPage - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE);
       setUsers(Array.isArray(data) ? data : []);
     } catch {
       setUsers([]);
     }
-  }, []);
+  }, [usersPage]);
 
   const loadInteractions = useCallback(async () => {
     try {
-      const data = await getAllInteractions();
+      const data = await getAllInteractions((interactionsPage - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE);
       setInteractions(Array.isArray(data) ? data : []);
     } catch {
       setInteractions([]);
     }
-  }, []);
+  }, [interactionsPage]);
 
   const loadGifts = useCallback(async () => {
     try {
-      const data = await listGifts(50);
+      const data = await listGifts((giftsPage - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE);
       setGifts(Array.isArray(data) ? data : []);
     } catch {
       setGifts([]);
     }
-  }, []);
+  }, [giftsPage]);
 
   const loadCategories = useCallback(async () => {
     try {
@@ -722,10 +727,6 @@ export function AdminDashboard({ onBack, onLogoClick }: AdminDashboardProps) {
                     label: "Total Interactions",
                     value: stats.total_interactions,
                   },
-                  {
-                    label: "Total Recommendations",
-                    value: stats.total_recommendations,
-                  },
                 ].map(({ label, value }) => (
                   <div
                     key={label}
@@ -738,7 +739,9 @@ export function AdminDashboard({ onBack, onLogoClick }: AdminDashboardProps) {
                   </div>
                 ))}
                 {stats.interaction_breakdown &&
-                  Object.entries(stats.interaction_breakdown).map(([k, v]) => (
+                  Object.entries(stats.interaction_breakdown)
+                    .filter(([k]) => k.toLowerCase() !== "purchase")
+                    .map(([k, v]) => (
                     <div
                       key={k}
                       className="bg-white rounded-2xl p-6 shadow-md border border-rose-100 flex flex-col gap-2"
@@ -881,6 +884,31 @@ export function AdminDashboard({ onBack, onLogoClick }: AdminDashboardProps) {
                   )}
                 </tbody>
               </table>
+              {stats && stats.total_users > 0 && (
+                <div className="flex justify-between items-center px-6 py-4 border-t border-rose-100 bg-rose-50/20 text-sm">
+                  <span className="text-gray-500">
+                    Showing {(usersPage - 1) * ITEMS_PER_PAGE + 1} to {Math.min(usersPage * ITEMS_PER_PAGE, stats.total_users)} of {stats.total_users}
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setUsersPage(p => Math.max(1, p - 1))}
+                      disabled={usersPage === 1}
+                    >
+                      Prev
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setUsersPage(p => p + 1)}
+                      disabled={usersPage * ITEMS_PER_PAGE >= stats.total_users}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </motion.div>
         )}
@@ -959,6 +987,31 @@ export function AdminDashboard({ onBack, onLogoClick }: AdminDashboardProps) {
                   )}
                 </tbody>
               </table>
+              {stats && stats.total_interactions > 0 && (
+                <div className="flex justify-between items-center px-6 py-4 border-t border-rose-100 bg-rose-50/20 text-sm">
+                  <span className="text-gray-500">
+                    Showing {(interactionsPage - 1) * ITEMS_PER_PAGE + 1} to {Math.min(interactionsPage * ITEMS_PER_PAGE, stats.total_interactions)} of {stats.total_interactions}
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setInteractionsPage(p => Math.max(1, p - 1))}
+                      disabled={interactionsPage === 1}
+                    >
+                      Prev
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setInteractionsPage(p => p + 1)}
+                      disabled={interactionsPage * ITEMS_PER_PAGE >= stats.total_interactions}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </motion.div>
         )}
@@ -1153,6 +1206,31 @@ export function AdminDashboard({ onBack, onLogoClick }: AdminDashboardProps) {
                   )}
                 </tbody>
               </table>
+              {stats && stats.total_gifts > 0 && (
+                <div className="flex justify-between items-center px-6 py-4 border-t border-rose-100 bg-rose-50/20 text-sm">
+                  <span className="text-gray-500">
+                    Showing {(giftsPage - 1) * ITEMS_PER_PAGE + 1} to {Math.min(giftsPage * ITEMS_PER_PAGE, stats.total_gifts)} of {stats.total_gifts}
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setGiftsPage(p => Math.max(1, p - 1))}
+                      disabled={giftsPage === 1}
+                    >
+                      Prev
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setGiftsPage(p => p + 1)}
+                      disabled={giftsPage * ITEMS_PER_PAGE >= stats.total_gifts}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </motion.div>
         )}
@@ -1850,6 +1928,7 @@ export function AdminDashboard({ onBack, onLogoClick }: AdminDashboardProps) {
                         <div className="flex gap-2">
                           <Input
                             value={v}
+                            type={(k.toLowerCase().includes('key') || k.toLowerCase().includes('secret') || k.toLowerCase().includes('password') || k.toLowerCase().includes('url') || k.toLowerCase().includes('sync') || k.toLowerCase().includes('client_id')) ? 'password' : 'text'}
                             className="font-mono text-sm bg-stone-50"
                             onChange={(e) =>
                               handleSettingChange("backend", k, e.target.value)
@@ -1903,6 +1982,7 @@ export function AdminDashboard({ onBack, onLogoClick }: AdminDashboardProps) {
                         <div className="flex gap-2">
                           <Input
                             value={v}
+                            type={(k.toLowerCase().includes('key') || k.toLowerCase().includes('secret') || k.toLowerCase().includes('password') || k.toLowerCase().includes('url') || k.toLowerCase().includes('sync') || k.toLowerCase().includes('client_id')) ? 'password' : 'text'}
                             className="font-mono text-sm bg-stone-50"
                             onChange={(e) =>
                               handleSettingChange("frontend", k, e.target.value)

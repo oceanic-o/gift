@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState, useRef } from "react";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { PackagingAnimation } from "./components/PackagingAnimation";
 const LandingPage = lazy(() =>
@@ -62,6 +62,14 @@ export default function App() {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
   const [pendingAdminRedirect, setPendingAdminRedirect] = useState(false);
+  const prevLoggedIn = useRef(isLoggedIn);
+
+  useEffect(() => {
+    if (prevLoggedIn.current === true && isLoggedIn === false) {
+      handleStartOver();
+    }
+    prevLoggedIn.current = isLoggedIn;
+  }, [isLoggedIn]);
 
   const [formData, setFormData] = useState<FormOutput | null>(null);
   const [selectedCard, setSelectedCard] = useState("");
